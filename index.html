@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Vargi-Bots</title>
+
+    <!-- creating a link to the external doc for layout and client-side script-->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+      integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+      crossorigin=""
+    />
+    
+    <link rel="stylesheet" href="index.css" />
+    
+    <script
+      src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+      integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
+      crossorigin=""
+    ></script>
+
+    <!--Load the AJAX API-->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+
+    <script
+      type="text/javascript"
+      src="https://www.gstatic.com/charts/loader.js"
+    ></script>
+  
+  </head>
+  
+  <body>
+    <header>
+      <center>
+        <div id="eyantraLogo">
+          <!-- div tag is used in html to create a different section in html doc-->
+          <!-- eyantra logo -->
+          <img
+            src="https://eyic.e-yantra.org/img/eYantra_logo_whitetext.png"
+            alt="e_yantra_logo"
+            width="290"
+            height="60"
+          />
+          <!-- br tag is used to create a line break-->
+        </div>
+      </center>
+    </header>
+    <br />
+    <div class="separator">
+      <div class="line"></div>
+      <h2>VB#1194 Dashboard</h2>
+      <div class="line"></div>
+    </div>
+
+    <div class="map-graph-table-container">
+
+      <div class = "map-container">
+        <div id="map" style="height: 400px"></div>
+      </div>
+      
+      <div class = "graph-container">
+        <div id="column_chart" style="height: 400px"></div>
+      </div>  
+
+      <div class = "table-container">
+        <table id="table1">
+          <thead>
+            <tr>
+              <th rowspan="2">Order ID</th>
+              <th rowspan="2">Item</th>
+              <th rowspan="2">Priority</th>
+              <th rowspan="2">City</th>
+              <th colspan="2">Order Status</th>
+              <th colspan="3">Timestamp</th>
+              <th rowspan="2">Time Taken</th>
+            </tr>
+            <tr>
+              <th>Dispatched</th>
+              <th>Shipped</th>
+              <th>Order placed</th>
+              <th>Dispatched</th>
+              <th>Shipped</th>
+            </tr>
+          </thead>
+          <tbody id="tableContent"></tbody>
+        </table>
+      </div>
+
+    </div>
+
+  </body>
+
+  <script>
+    /////////////Ajax Requests////////////
+    $(document).ready(function () {
+      // Fetch the initial table
+      refreshMapTableChart();
+      // Fetch the initial Map
+      setMap();
+
+      // Fetch every 5 second
+      setInterval(refreshMapTableChart, 15000);
+    });
+
+    // Load the Visualization API and the corechart package.
+    google.charts.load("current", { packages: ["corechart"] });
+    google.charts.setOnLoadCallback(refreshMapTableChart);
+
+    var container;
+    var map;
+
+    function setMap() {
+      container = L.DomUtil.get("map");
+
+      if (container != null) {
+        container._leaflet_id = null;
+      }
+
+      map = L.map("map").setView([20.5937, 78.9629], 4); // setView(geo coordinates, zoom level)
+
+      L.tileLayer(
+                  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                  {
+                  attribution:
+                      '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
+                  }
+              ).addTo(map);
+    }
+
+    function refreshMapTableChart() 
+    {
+      var trHTML = "";
+      var graph_arr = [["Order ID", "Time Taken", { role: "style" }]];
+      var bar_color = [];
+      var jsonDataObject = [];
+
+      $.getJSON("https://spreadsheets.google.com/feeds/list/1hmwe9jIN6fUMVO_jSjrfxsNdx8Vzgj6KlCRQe96Ab1E/5/public/full?alt=json",
+      // $.getJSON("https://spreadsheets.google.com/feeds/list/1NwXwheJHE-wZ4lYAKhxUDgZZvS3DRCcuKiLCulHC6zw/1/public/full?alt=json",
+      function (data) 
+      {
+        if (data.feed.entry)
+        {
+          for (var i = 0; i < data.feed.entry.length; ++i) 
+          {
+
+              var json_data = { City: data.feed.entry[i].gsx$city.$t,
+                                OrderID: data.feed.entry[i].gsx$orderid.$t,
+                                Item: data.feed.entry[i].gsx$item.$t,
+                                Latitude: parseFloat(data.feed.entry[i].gsx$latitude.$t),
+                                Longitude: parseFloat(data.feed.entry[i].gsx$longitude.$t),
+                                DispatchStatus: data.feed.entry[i].gsx$dispatched.$t,
+                                ShippingStatus: data.feed.entry[i].gsx$shipped.$t,
+                                priority: data.feed.entry[i].gsx$priority.$t,
+                                TimeTaken: parseFloat(data.feed.entry[i].gsx$timetaken.$t)
+                              };
+              
+              jsonDataObject.push(json_data);
+
+              trHTML +=
+                      "<tr><td>" + json_data.OrderID +
+                      "</td><td>" + json_data.Item +
+                      "</td><td>" + json_data.priority +
+                      "</td><td>" + json_data.City +
+                      "</td><td>" + data.feed.entry[i].gsx$dispatched.$t +
+                      "</td><td>" + data.feed.entry[i].gsx$shipped.$t +
+                      "</td><td>" + data.feed.entry[i].gsx$ordertime.$t +
+                      "</td><td>" + data.feed.entry[i].gsx$dispatchtime.$t +
+                      "</td><td>" + data.feed.entry[i].gsx$shippedtime.$t +
+                      "</td><td>" + data.feed.entry[i].gsx$timetaken.$t +
+                      "</td></tr>";
+          
+              console.log(trHTML);
+              $("#tableContent").html(trHTML);
+
+              let markerColor, color;
+
+              if (jsonDataObject[i].DispatchStatus == "NO" && jsonDataObject[i].ShippingStatus == "NO") 
+                  {
+                    markerColor = 'red-dot'
+                  }
+              else if (jsonDataObject[i].DispatchStatus == "YES" && jsonDataObject[i].ShippingStatus == "NO")
+                  {
+                    markerColor = 'yellow-dot'
+                  }
+              else if (jsonDataObject[i].DispatchStatus == "YES" && jsonDataObject[i].ShippingStatus == "YES")
+                  {
+                    markerColor = 'green-dot'
+                  }
+
+                if (jsonDataObject[i].priority == "HP")
+                {
+                  color = "#ff0000";
+                }
+                else if (jsonDataObject[i].priority == "MP")
+                {
+                  color = "#ffdd01";
+                }
+                else if (jsonDataObject[i].priority == "LP")
+                {
+                  color = "#15ff00";
+                }
+
+                  var myIcon = L.icon({
+                      iconUrl: `http://maps.google.com/mapfiles/ms/icons/${markerColor}.png`,
+                      iconSize:     [38, 50], // size of the icon
+                      shadowSize:   [50, 44], // size of the shadow
+                      iconAnchor:   [22,50], // point of the icon which will correspond to marker's location
+                      shadowAnchor: [4, 42],  // the same for the shadow
+                      popupAnchor:  [-3, -56] // point from which the popup should open relative to the iconAnchor
+                  });
+
+              var marker = L.marker(
+                  L.latLng(
+                  parseFloat(jsonDataObject[i].Latitude),
+                  parseFloat(jsonDataObject[i].Longitude)
+                  ),
+                  { icon: myIcon }
+              );
+
+              marker.bindPopup(jsonDataObject[i].City, {
+                  autoClose: false,
+              });
+
+              map.addLayer(marker);
+              
+              marker.on("click", onClick_Marker);
+              // Attach the corresponding JSON data to your marker:
+              marker.myJsonData = jsonDataObject[i];
+
+              function onClick_Marker(e) {
+                  var marker = e.target;
+                  popup = L.popup()
+                  .setLatLng(marker.getLatLng())
+                  .setContent("Order ID: " + marker.myJsonData.OrderID +
+                              "|| Dispatched: " + marker.myJsonData.dispatched + 
+                              "|| Shipped: " +  marker.myJsonData.shipped)
+                  .openOn(map);
+
+              }
+
+              if (!(isNaN(jsonDataObject[i].TimeTaken)))
+              {
+                  graph_arr.push([
+                    jsonDataObject[i].OrderID,
+                    jsonDataObject[i].TimeTaken,
+                    color,
+                ]);
+              }
+
+          } // i loop finishes
+          
+          var graphArray_Final = google.visualization.arrayToDataTable(
+              graph_arr
+            );
+          
+          var data = new google.visualization.DataView(graphArray_Final);
+
+          var options = {
+            title: "Time Taken for items to be Shipped",
+            hAxis: { title: "Order ID" },
+            vAxis: { title: "Time Taken (s)" },
+            legend: { position: "none" },
+          };
+          var chart = new google.visualization.ColumnChart(
+            document.getElementById("column_chart")
+          );
+          chart.draw(data, options);
+        }
+      } // function finishes
+      );
+    } // refresh map table function finishes
+
+  </script>
+</html>
